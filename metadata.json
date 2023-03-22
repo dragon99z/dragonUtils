@@ -1,0 +1,10 @@
+{
+    "name": "dragonUtils",
+    "creator": "dragon99z",
+    "description": "dragonUtils",
+    "version": "0.0.1",
+    "entry": "index.js",
+    "requires": [
+      "axios"
+    ]
+  }
