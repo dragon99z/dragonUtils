@@ -8,7 +8,7 @@ register("worldLoad", connect);
 
 var connected = false;
 
-var settings = JSON.parse(FileLib.read("dragonUtils","settings.json"));
+var settings;
 var blow = false;
 var colorCodes = new Array("§0","§1","§2","§3","§4","§5","§6","§7","§8","§9","§a","§b","§c","§d","§e","§f","§r","§k","§l","§m","§n","§o","§A","§B","§C","§D","§E","§F","§R","§K","§L","§M","§N","§O","&0","&1","&2","&3","&4","&5","&6","&7","&8","&9","&a","&b","&c","&d","&e","&f","&r","&k","&l","&m","&n","&o","&A","&B","&C","&D","&E","&F","&R","&K","&L","&M","&N","&O");
 
@@ -20,45 +20,78 @@ const baseUrl = "https://api.dragon99z.de/events";
 var wants = "none";
 var currentEvent = "none";
 
+var uuid  = Player.getUUID();
+var name  = Player.getName();
+
 var api_json;
 
+var tempX;
+var tempY;
+
+/*
+function onlineCheck(name){
+    let skyblock_api;
+    let online = false;
+    axios.get("https://skyblock-api.matdoes.dev/player/"+name,{headers: {
+        "User-Agent": "Mozilla/5.0 (ChatTriggers)"
+    }}).then(response => {
+        skyblock_api = response.data;
+        online = skyblock_api.online;
+      })
+      .catch(error => {
+        if (error.isAxiosError) {
+            print(error.code + ": " + error.response.data);
+        } else {
+            print(error.message);
+        }
+      });
+    return online;
+}
+*/
+
 function connect(){
-    if(!connected && settings.share){
-        let uuid  = Player.getUUID();
-        let name  = Player.getName();
-        axios.get(baseUrl+"?state=add&uuid="+uuid+"&name="+name+"&location=Hub&event="+currentEvent+"&wants="+wants,{headers: {
-            "User-Agent": "Mozilla/5.0 (ChatTriggers)"
-        }}).then(response => {
-            api_json = response.data;
-          })
-          .catch(error => {
-            if (error.isAxiosError) {
-                print(error.code + ": " + error.response.data);
-            } else {
-                print(error.message);
-            }
-          });
+    if(!connected && Server.getIP().includes("hypixel.net")){
+        if(FileLib.exists("dragonUtils","settings.json")){
+            settings = JSON.parse(FileLib.read("dragonUtils","settings.json"));
+        }else{
+            
+            FileLib.write("dragonUtils","settings.json",JSON.stringify({"toggle":true,"toggleDisplay":false,"delay":5,"displayHeight":4,"displayLength":277,"share":true}))
+            settings = JSON.parse(FileLib.read("dragonUtils","settings.json"));
+        }
+
+        if(settings.share){
+            axios.get(baseUrl+"?state=add&uuid="+uuid+"&name="+name+"&location=Hub&event="+currentEvent+"&wants="+wants,{headers: {
+                "User-Agent": "Mozilla/5.0 (ChatTriggers)"
+            }}).then(response => {
+                api_json = response.data;
+              })
+              .catch(error => {
+                if (error.isAxiosError) {
+                    print(error.code + ": " + error.response.data);
+                } else {
+                    print(error.message);
+                }
+              });
+        }else{
+            axios.get(baseUrl,{headers: {
+                "User-Agent": "Mozilla/5.0 (ChatTriggers)"
+            }}).then(response => {
+                api_json = response.data;
+              })
+              .catch(error => {
+                if (error.isAxiosError) {
+                    print(error.code + ": " + error.response.data);
+                } else {
+                    print(error.message);
+                }
+              });
+        }
+        tempX = settings.displayLength;
+        tempY = settings.displayHeight
         ChatLib.chat("§6---§aDragonUtils§6---");
         ChatLib.chat("§aDragonUtils loaded!");
         connected = true;
-    }else if(!connected  && !settings.share){
-        axios.get(baseUrl,{headers: {
-            "User-Agent": "Mozilla/5.0 (ChatTriggers)"
-        }}).then(response => {
-            api_json = response.data;
-          })
-          .catch(error => {
-            if (error.isAxiosError) {
-                print(error.code + ": " + error.response.data);
-            } else {
-                print(error.message);
-            }
-          });
-        ChatLib.chat("§6---§aDragonUtils§6---");
-        ChatLib.chat("§aDragonUtils loaded!");
-        connected = true;
-    }
-    
+    }    
 }
 
 
@@ -66,7 +99,6 @@ function connect(){
 
 function disconnect(){
     if(connected){
-        let uuid  = Player.getUUID();
         if(Server.getIP() == ""){
             axios.get(baseUrl+"?state=remove&uuid="+uuid,{headers: {
                 "User-Agent": "Mozilla/5.0 (ChatTriggers)"
@@ -87,35 +119,44 @@ function disconnect(){
     
 }
 
+var draggin = false;
 function drag(xDist,yDist,mouseX,mouseY,button){
     if(Client.isInChat()){
-        settings.displayLength = parseInt(mouseX);
-        settings.displayHeight = parseInt(mouseY);
-        FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+        draggin = true;
+        tempX = parseInt(mouseX);
+        tempY = parseInt(mouseY);
     }
 }
 
+
+
+display.setAlign("center");
+display.setBackground(DisplayHandler.Background.PER_LINE);
+
 function warnDisplay() {
     if(connected && api_json != null){
-        display.setRenderLoc(settings.displayLength, settings.displayHeight);
-        display.setAlign("center");
-        display.setBackground(DisplayHandler.Background.PER_LINE);
+        if(!draggin){
+            display.setRenderLoc(settings.displayLength, settings.displayHeight);
+        }else{
+            display.setRenderLoc(tempX, tempY);
+            if(!Client.isInChat()){
+                settings.displayLength = tempX;
+                settings.displayHeight = tempY;
+                FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+                draggin = false;
+            }
+        }
+
         if(settings.toggleDisplay){
             display.setLine(0,new DisplayLine("").registerDragged((xDist,yDist,mouseX,mouseY,button) =>drag(xDist,yDist,mouseX,mouseY,button)));
             display.setLine(1, "§4§lEvent: "+currentEvent+"");
             display.setLine(2, new DisplayLine("---------------").setTextColor(Renderer.DARK_GRAY));
-            let none = true;
             for(i = 0; i<api_json.Players.length;i++){
                 if(api_json.Players[i].event != "none"){
                     display.setLine(i+3,"§6" + api_json.Players[i].name + "§r §a-§r §9" + api_json.Players[i].location + "§r §a-§r §c" + api_json.Players[i].event)
-                    none = false;
+                }else{
+                    display.setLine(i+3,"")
                 }
-            }
-            if(none){
-                for(i = 3;i<display.getLines().length;i++){
-                    display.setLine(i,"");
-                }
-                
             }
             
         }else{
@@ -152,30 +193,33 @@ var dragonDown = false;
 var eyes = 0;
 
 register("chat",(event)=>{
-    lastChatMessage = ChatLib.getChatMessage(event, true);
-    if(getArea() == "The End"){
-        
-        if(removeColor(lastChatMessage).match("BEWARE - An Endstone Protector has risen!")){
-            currentEvent = "Endstone Protector";
-            endstone = true;
-        }else if(removeColor(lastChatMessage).includes("ENDSTONE PROTECTOR DOWN!") && endstone){
-            endstone = false;
-        }
-
-        if(removeColor(lastChatMessage).includes("placed a Summoning Eye!")){
-            let eye = removeColor(lastChatMessage).slice(-4).slice(0,1);
-            if(isNumeric(eye)){
-                eyes = parseInt(eye);
-                currentEvent = "Eyes " + eyes;
+    if(connected){
+        lastChatMessage = ChatLib.getChatMessage(event, true);
+        if(getArea() == "The End"){
+            
+            if(removeColor(lastChatMessage).match("BEWARE - An Endstone Protector has risen!")){
+                currentEvent = "Endstone Protector";
+                endstone = true;
+            }else if(removeColor(lastChatMessage).includes("ENDSTONE PROTECTOR DOWN!") && endstone){
+                endstone = false;
+            }
+    
+            if(removeColor(lastChatMessage).includes("placed a Summoning Eye!")){
+                let eye = removeColor(lastChatMessage).slice(-4).slice(0,1);
+                if(isNumeric(eye)){
+                    eyes = parseInt(eye);
+                    currentEvent = "Eyes " + eyes;
+                }
+            }
+    
+            if(removeColor(lastChatMessage).includes("DRAGON DOWN!") && dragon){
+                ChatLib.chat("Down");
+                dragonDown = true;
+                dragon = false;
             }
         }
-
-        if(removeColor(lastChatMessage).includes("DRAGON DOWN!") && dragon){
-            ChatLib.chat("Down");
-            dragonDown = true;
-            dragon = false;
-        }
     }
+    
 });
 
 function getEvent(location){
@@ -265,8 +309,6 @@ function getEvent(location){
 }
 
 function apiShare(area,event,want){
-    let uuid  = Player.getUUID();
-    let name  = Player.getName();
     let url = baseUrl+"?state=add&uuid="+uuid+"&name="+name+"&location="+area+"&event="+event+"&wants="+want;
     url = url.replaceAll(" ", "%20");
     axios.get(url,{headers: {
@@ -302,8 +344,9 @@ var events_array = new Array("CATACLYSMIC","2X POWDER","BETTER TOGETHER","GOBLIN
 
 let stepCount=0;
 function main(){
-    if(settings.toggle && connected){
-        stepCount++;
+    if(connected){
+        if(settings.toggle){
+            stepCount++;
         if(stepCount>=60*settings.delay){
             stepCount=0;
             let area = getArea();
@@ -333,26 +376,28 @@ function main(){
             }
             
         }
-        
-        
+        }        
     }
     
 }
 
 let updateCount=0;
 function Update(){
-    if(settings.toggle && connected){
-        updateCount++;
-        if(updateCount>=60*5){
-            updateCount=0;
-            let area = getArea();
-            if(settings.share){
-                apiShare(area,currentEvent,wants);
-            }else{
-                apiUpdate();
+    if(connected){
+        if(settings.toggle){
+            updateCount++;
+            if(updateCount>=60*5){
+                updateCount=0;
+                let area = getArea();
+                if(settings.share){
+                    apiShare(area,currentEvent,wants);
+                }else{
+                    apiUpdate();
+                }
+                
             }
-            
         }
+        
     }
     
 }
@@ -375,204 +420,204 @@ function isNumeric(str) {
 }
 
 register("command", (...setting) => {
-    if(setting == null){
-        ChatLib.chat("§6---§aDragonUtils§6---");
-        ChatLib.chat("§a/dragonutils || /du §2(display this text)");
-        ChatLib.chat("§a/du help §2(display this text)");
-        ChatLib.chat("§a/du toggle §2(toggle the cataclysmic check)");
-        ChatLib.chat("§a/du delay <number> §2(change the cataclysmic check delay in seconds)");
-        ChatLib.chat("§a/du want <events> §2(sets the event your searching for)");
-        ChatLib.chat("§a/du share §2(toggle if you want to share your events)");
-        ChatLib.chat("§a/du list <event/want> §2(lists all player sharing there events or searching for one)");
-        ChatLib.chat("§a/du toggleDisplay §2(toggle the cataclysmic warning)");
-    }else{
-        switch(setting[0]){
-            case "toggle":
-                if(setting[1] == null){
-                    settings.toggle = !settings.toggle;
-                    FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
-                    ChatLib.chat("§6---§aDragonUtils§6---");
-                    ChatLib.chat("§2The toggle has been set to §a" + settings.toggle);
-                }else{
-                    if(setting[1]=="true"){
-                        settings.toggle = true;
-                        FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
-                        ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("§2The toggle has been set to §a" + settings.toggle);
-                    }else if(value=="false"){
-                        settings.toggle = false;
+    if(connected){
+        if(setting == null){
+            ChatLib.chat("§6---§aDragonUtils§6---");
+            ChatLib.chat("§a/dragonutils || /du §2(display this text)");
+            ChatLib.chat("§a/du help §2(display this text)");
+            ChatLib.chat("§a/du toggle §2(toggle the cataclysmic check)");
+            ChatLib.chat("§a/du delay <number> §2(change the cataclysmic check delay in seconds)");
+            ChatLib.chat("§a/du want <events> §2(sets the event your searching for)");
+            ChatLib.chat("§a/du share §2(toggle if you want to share your events)");
+            ChatLib.chat("§a/du list <event/want> §2(lists all player sharing there events or searching for one)");
+            ChatLib.chat("§a/du toggleDisplay §2(toggle the cataclysmic warning)");
+        }else{
+            switch(setting[0]){
+                case "toggle":
+                    if(setting[1] == null){
+                        settings.toggle = !settings.toggle;
                         FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
                         ChatLib.chat("§6---§aDragonUtils§6---");
                         ChatLib.chat("§2The toggle has been set to §a" + settings.toggle);
                     }else{
-                        ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("Use true or false!");
-                    }
-                }
-                break;
-            case "toggleDisplay":
-                if(setting[1] == null){
-                    settings.toggleDisplay = !settings.toggleDisplay;
-                    FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
-                    ChatLib.chat("§6---§aDragonUtils§6---");
-                    ChatLib.chat("§2The toggleDisplay has been set to §a" + settings.toggleDisplay);
-                }else{
-                    if(setting[1]=="true"){
-                        settings.toggleDisplay = true;
-                        FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
-                        ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("§2The toggleDisplay has been set to §a" + settings.toggleDisplay);
-                    }else if(value=="false"){
-                        settings.toggleDisplay = false;
-                        FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
-                        ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("§2The toggleDisplay has been set to §a" + settings.toggleDisplay);
-                    }else{
-                        ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("§4Use true or false!");
-                    }
-                }
-                break;
-            case "delay":
-                    if(isNumeric(setting[1])){
-                        let dly = parseInt(setting[1]);
-                        if(dly > 0){
-                            settings.delay = dly;
+                        if(setting[1]=="true"){
+                            settings.toggle = true;
                             FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
                             ChatLib.chat("§6---§aDragonUtils§6---");
-                            ChatLib.chat("§2The delay has been set to §a" + settings.delay);
+                            ChatLib.chat("§2The toggle has been set to §a" + settings.toggle);
+                        }else if(value=="false"){
+                            settings.toggle = false;
+                            FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§2The toggle has been set to §a" + settings.toggle);
                         }else{
                             ChatLib.chat("§6---§aDragonUtils§6---");
-                            ChatLib.chat("§4Input a higher number then "+dly+"!");
+                            ChatLib.chat("Use true or false!");
                         }
-                    }else{
+                    }
+                    break;
+                case "toggleDisplay":
+                    if(setting[1] == null){
+                        settings.toggleDisplay = !settings.toggleDisplay;
+                        FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
                         ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("§4Input a number!");
-                    }
-                break;
-            case "help":
-                ChatLib.chat("§6---§aDragonUtils§6---");
-                ChatLib.chat("§a/dragonutils || /du §2(display this text)");
-                ChatLib.chat("§a/du help §2(display this text)");
-                ChatLib.chat("§a/du toggle §2(toggle the cataclysmic check)");
-                ChatLib.chat("§a/du delay <number> §2(change the cataclysmic check delay in seconds)");
-                ChatLib.chat("§a/du want <events> §2(sets the event your searching for)");
-                ChatLib.chat("§a/du share §2(toggle if you want to share your events)");
-                ChatLib.chat("§a/du list <event/want> §2(lists all player sharing there events or searching for one)");
-                ChatLib.chat("§a/du toggleDisplay §2(toggle the cataclysmic warning)");
-                break
-            case "want":
-                if(setting.length > 1){
-                    wants = "";
-                    for(i = 1;i< 4;i++){
-                        if(setting[i] != null){
-                            wants = wants +" "+setting[i];
+                        ChatLib.chat("§2The toggleDisplay has been set to §a" + settings.toggleDisplay);
+                    }else{
+                        if(setting[1]=="true"){
+                            settings.toggleDisplay = true;
+                            FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§2The toggleDisplay has been set to §a" + settings.toggleDisplay);
+                        }else if(value=="false"){
+                            settings.toggleDisplay = false;
+                            FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§2The toggleDisplay has been set to §a" + settings.toggleDisplay);
+                        }else{
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§4Use true or false!");
                         }
                     }
-                    if(wants.startsWith(" ")){
-                        wants = wants.slice(1);
-                    }
-                    if(events_array.includes(wants)){
+                    break;
+                case "delay":
+                        if(isNumeric(setting[1])){
+                            let dly = parseInt(setting[1]);
+                            if(dly > 0){
+                                settings.delay = dly;
+                                FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+                                ChatLib.chat("§6---§aDragonUtils§6---");
+                                ChatLib.chat("§2The delay has been set to §a" + settings.delay);
+                            }else{
+                                ChatLib.chat("§6---§aDragonUtils§6---");
+                                ChatLib.chat("§4Input a higher number then "+dly+"!");
+                            }
+                        }else{
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§4Input a number!");
+                        }
+                    break;
+                case "help":
+                    ChatLib.chat("§6---§aDragonUtils§6---");
+                    ChatLib.chat("§a/dragonutils || /du §2(display this text)");
+                    ChatLib.chat("§a/du help §2(display this text)");
+                    ChatLib.chat("§a/du toggle §2(toggle the cataclysmic check)");
+                    ChatLib.chat("§a/du delay <number> §2(change the cataclysmic check delay in seconds)");
+                    ChatLib.chat("§a/du want <events> §2(sets the event your searching for)");
+                    ChatLib.chat("§a/du share §2(toggle if you want to share your events)");
+                    ChatLib.chat("§a/du list <event/want> §2(lists all player sharing there events or searching for one)");
+                    ChatLib.chat("§a/du toggleDisplay §2(toggle the cataclysmic warning)");
+                    break
+                case "want":
+                    if(setting.length > 1){
+                        wants = "";
+                        for(i = 1;i< 4;i++){
+                            if(setting[i] != null){
+                                wants = wants +" "+setting[i];
+                            }
+                        }
+                        if(wants.startsWith(" ")){
+                            wants = wants.slice(1);
+                        }
+                        if(events_array.includes(wants)){
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§aYou search for " + wants);
+                        }else{
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§4Your search has been set to " + wants);
+                            ChatLib.chat("§4Please use one of these: ");
+                            let wEvents = events_array.toString();
+                            wEvents = wEvents.replaceAll(",",", ");
+                            ChatLib.chat("§a"+wEvents);
+                            wants = "none";
+                        }
+                        
+                    }else{
+                        wants = "none";
                         ChatLib.chat("§6---§aDragonUtils§6---");
                         ChatLib.chat("§aYou search for " + wants);
-                    }else{
-                        ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("§4Your search has been set to " + wants);
-                        ChatLib.chat("§4Please use one of these: ");
-                        let wEvents = events_array.toString();
-                        wEvents = wEvents.replaceAll(",",", ");
-                        ChatLib.chat("§a"+wEvents);
-                        wants = "none";
                     }
-                    
-                }else{
-                    wants = "none";
-                    ChatLib.chat("§6---§aDragonUtils§6---");
-                    ChatLib.chat("§aYou search for " + wants);
-                }
-                break
-            case "share":
-                if(setting[1] == null){
-                settings.share = !settings.share;
-                    FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
-                    ChatLib.chat("§6---§aDragonUtils§6---");
-                    ChatLib.chat("§2The share has been set to §a" + settings.share);
-                    if(!settings.share){
-                        let uuid  = Player.getUUID();
-                        axios.get(baseUrl+"?state=remove&uuid="+uuid,{headers: {
-                            "User-Agent": "Mozilla/5.0 (ChatTriggers)"
-                        }})
-                    }
-                }else{
-                    if(setting[1]=="true"){
-                        settings.share = true;
+                    break
+                case "share":
+                    if(setting[1] == null){
+                    settings.share = !settings.share;
                         FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
                         ChatLib.chat("§6---§aDragonUtils§6---");
                         ChatLib.chat("§2The share has been set to §a" + settings.share);
-                    }else if(setting[1]=="false"){
-                        settings.share = false;
-                        FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
-                        ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("§2The toggle has been set to §a" + settings.share);
-                        let uuid  = Player.getUUID();
-                        axios.get(baseUrl+"?state=remove&uuid="+uuid,{headers: {
-                            "User-Agent": "Mozilla/5.0 (ChatTriggers)"
-                        }})
+                        if(!settings.share){
+                            axios.get(baseUrl+"?state=remove&uuid="+uuid,{headers: {
+                                "User-Agent": "Mozilla/5.0 (ChatTriggers)"
+                            }})
+                        }
                     }else{
-                    ChatLib.chat("§6---§aDragonUtils§6---");
-                        ChatLib.chat("Use share or false!");
+                        if(setting[1]=="true"){
+                            settings.share = true;
+                            FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§2The share has been set to §a" + settings.share);
+                        }else if(setting[1]=="false"){
+                            settings.share = false;
+                            FileLib.write("dragonUtils","settings.json",JSON.stringify(settings));
+                            ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("§2The toggle has been set to §a" + settings.share);
+                            axios.get(baseUrl+"?state=remove&uuid="+uuid,{headers: {
+                                "User-Agent": "Mozilla/5.0 (ChatTriggers)"
+                            }})
+                        }else{
+                        ChatLib.chat("§6---§aDragonUtils§6---");
+                            ChatLib.chat("Use share or false!");
+                        }
                     }
-                }
-                break;
-            case "list":
-                ChatLib.chat("§6---§aDragonUtils§6---");
-                switch(setting[1]){
-                    case "event":
-                        ChatLib.chat("§aPlayer Events: ");
-                        api_json.Players.forEach(player => {
-                            if(player.event != "none"){
-                                ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aEvent§r§b:§r §c" + player.event);
-                            }
-                        })
-                        break;
-                    case "want":
-                        ChatLib.chat("§aPlayer Wants: ");
-                        api_json.Players.forEach(player => {
-                            if(player.wants != "none"){
-                                ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aWants§r§b:§r §c" + player.wants);
-                            }
-                        })
-                        break;
-                    case null:
-                        ChatLib.chat("§aPlayer Events: ");
-                        api_json.Players.forEach(player => {
-                            if(player.event != "none"){
-                                ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aEvent§r§b:§r §c" + player.event);
-                            }
-                        })
-                        break;
-                    default:
-                        ChatLib.chat("§aPlayer Events: ");
-                        api_json.Players.forEach(player => {
-                            if(player.event != "none"){
-                                ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aEvent§r§b:§r §c" + player.event);
-                            }
-                        })
-                        break;
-                }
-                break;
-            default:
-                ChatLib.chat("§6---§aDragonUtils§6---");
-                ChatLib.chat("§a/dragonutils || /du §2(display this text)");
-                ChatLib.chat("§a/du help §2(display this text)");
-                ChatLib.chat("§a/du toggle §2(toggle the cataclysmic check)");
-                ChatLib.chat("§a/du delay <number> §2(change the cataclysmic check delay in seconds)");
-                ChatLib.chat("§a/du want <events> §2(sets the event your searching for)");
-                ChatLib.chat("§a/du share §2(toggle if you want to share your events)");
-                ChatLib.chat("§a/du list <event/want> §2(lists all player sharing there events or searching for one)");
-                ChatLib.chat("§a/du toggleDisplay §2(toggle the cataclysmic warning)");
-                break;
+                    break;
+                case "list":
+                    ChatLib.chat("§6---§aDragonUtils§6---");
+                    switch(setting[1]){
+                        case "event":
+                            ChatLib.chat("§aPlayer Events: ");
+                            api_json.Players.forEach(player => {
+                                if(player.event != "none"){
+                                    ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aEvent§r§b:§r §c" + player.event);
+                                }
+                            })
+                            break;
+                        case "want":
+                            ChatLib.chat("§aPlayer Wants: ");
+                            api_json.Players.forEach(player => {
+                                if(player.wants != "none"){
+                                    ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aWants§r§b:§r §c" + player.wants);
+                                }
+                            })
+                            break;
+                        case null:
+                            ChatLib.chat("§aPlayer Events: ");
+                            api_json.Players.forEach(player => {
+                                if(player.event != "none"){
+                                    ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aEvent§r§b:§r §c" + player.event);
+                                }
+                            })
+                            break;
+                        default:
+                            ChatLib.chat("§aPlayer Events: ");
+                            api_json.Players.forEach(player => {
+                                if(player.event != "none"){
+                                    ChatLib.chat("§6" + player.name + "§r §aLocation§r§b:§r §9" + player.location + "§r §aEvent§r§b:§r §c" + player.event);
+                                }
+                            })
+                            break;
+                    }
+                    break;
+                default:
+                    ChatLib.chat("§6---§aDragonUtils§6---");
+                    ChatLib.chat("§a/dragonutils || /du §2(display this text)");
+                    ChatLib.chat("§a/du help §2(display this text)");
+                    ChatLib.chat("§a/du toggle §2(toggle the cataclysmic check)");
+                    ChatLib.chat("§a/du delay <number> §2(change the cataclysmic check delay in seconds)");
+                    ChatLib.chat("§a/du want <events> §2(sets the event your searching for)");
+                    ChatLib.chat("§a/du share §2(toggle if you want to share your events)");
+                    ChatLib.chat("§a/du list <event/want> §2(lists all player sharing there events or searching for one)");
+                    ChatLib.chat("§a/du toggleDisplay §2(toggle the cataclysmic warning)");
+                    break;
+            }
         }
     }
-    
+  
   }).setTabCompletions("toggle","delay","help","toggleDisplay","want","share","list").setName("dragonutils").setAliases("du");

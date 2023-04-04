@@ -1,8 +1,8 @@
 {
     "name": "dragonUtils",
     "creator": "dragon99z",
-    "description": "dragonUtils",
-    "version": "0.0.1",
+    "description": "This is a event sharing module for mines,end and crimson",
+    "version": "0.5.0",
     "entry": "index.js",
     "requires": [
       "axios"
